@@ -77,8 +77,40 @@ return [
                 ],
             ],
 
+            'mariadb' => [
+                'dump' => [
+                    'useSingleTransaction' => true,
+                    'useQuick' => true,
+                ],
+            ],
+
+            'pgsql' => [
+                'dump' => [
+                    'useSingleTransaction' => true,
+                    'useQuick' => true,
+                ],
+            ],
+
+            'sqlite' => [
+                'dump' => [
+                    'useSingleTransaction' => true,
+                    'useQuick' => true,
+                ],
+            ],
+
+            'sqlsrv' => [
+                'dump' => [
+                    'useSingleTransaction' => true,
+                    'useQuick' => true,
+                ],
+            ],
+
+            // Back up whichever connection the app is actually configured with.
+            // Hardcoding 'mysql' asks spatie/laravel-backup for a connection that
+            // does not exist on PostgreSQL/MariaDB/SQLite installs, so `backup:run`
+            // fails on every non-MySQL deployment.
             'databases' => [
-                'mysql',
+                env('DB_CONNECTION', 'mysql'),
             ],
         ],
 
