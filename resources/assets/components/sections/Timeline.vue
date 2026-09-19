@@ -260,6 +260,7 @@
                         max_id: this.max_id,
                         limit: 6,
                         include_reblogs: true,
+                        photos_reblogs_only: this?.settings?.photo_reblogs_only ?? true,
                     }
                 } else {
                     url = this.baseApi + this.getScope();
@@ -334,6 +335,7 @@
                         max_id: this.max_id,
                         limit: 6,
                         include_reblogs: true,
+                        photos_reblogs_only: this?.settings?.photo_reblogs_only ?? true,
                     }
                 } else {
                     url = this.baseApi + this.getScope();

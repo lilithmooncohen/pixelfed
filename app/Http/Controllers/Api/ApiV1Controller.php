@@ -2616,6 +2616,7 @@ class ApiV1Controller extends Controller
             'max_id' => 'nullable|integer|min:0|max:'.PHP_INT_MAX,
             'limit' => 'sometimes|integer|min:1',
             'include_reblogs' => 'sometimes',
+            'photos_reblogs_only' => 'sometimes',
         ]);
 
         $napi = $request->has(self::PF_API_ENTITY_KEY);
@@ -2633,12 +2634,18 @@ class ApiV1Controller extends Controller
         $userEnableReblogs = data_get($other, 'enable_reblogs', false);
         $includeReblogs = $request->filled('include_reblogs') ? $request->boolean('include_reblogs') : $userEnableReblogs;
 
+        // "Photo reblogs only" is a persisted Timeline Setting; honour the request
+        // parameter when present, otherwise fall back to the stored preference.
+        $userPhotoReblogsOnly = data_get($other, 'photo_reblogs_only', false);
+        $photosReblogsOnly = $request->filled('photos_reblogs_only') ? $request->boolean('photos_reblogs_only') : $userPhotoReblogsOnly;
+
         $nullFields = $includeReblogs ?
             ['in_reply_to_id'] :
             ['in_reply_to_id', 'reblog_of_id'];
+        $inTypesStrict = ['photo', 'photo:album', 'video', 'video:album', 'photo:video:album'];
         $inTypes = $includeReblogs ?
-            ['photo', 'photo:album', 'video', 'video:album', 'photo:video:album', 'share'] :
-            ['photo', 'photo:album', 'video', 'video:album', 'photo:video:album'];
+            [...$inTypesStrict, 'share'] :
+            $inTypesStrict;
         AccountService::setLastActive($request->user()->id);
 
         $cachedFilters = CustomFilter::getCachedFiltersForAccount($pid);
@@ -2681,8 +2688,18 @@ class ApiV1Controller extends Controller
                 ->filter(function ($res) {
                     return $res && isset($res['account']);
                 })
-                ->filter(function ($s) use ($includeReblogs) {
-                    return $includeReblogs ? true : $s['reblog'] == null;
+                ->filter(function ($s) use ($includeReblogs, $photosReblogsOnly, $inTypesStrict) {
+                    if (! $includeReblogs) {
+                        return $s['reblog'] == null;
+                    }
+
+                    // When "Photo reblogs only" is on, keep direct posts and
+                    // reblogs whose target is a photo/video status; drop text reblogs.
+                    if ($photosReblogsOnly && $s['reblog'] != null) {
+                        return in_array(data_get($s['reblog'], 'pf_type'), $inTypesStrict);
+                    }
+
+                    return true;
                 })
                 ->map(function ($status) use ($homeFilters) {
                     $filterResults = CustomFilter::applyCachedFilters($homeFilters, $status);
@@ -2766,6 +2783,22 @@ class ApiV1Controller extends Controller
                 ->whereIntegerInRaw('profile_id', $following)
                 ->whereIn('type', $inTypes)
                 ->whereIn('visibility', ['public', 'unlisted', 'private'])
+                ->when($includeReblogs && $photosReblogsOnly, function ($q) use ($inTypesStrict) {
+                    // Keep direct posts plus reblogs whose target is a photo/video
+                    // status. The correlated EXISTS probes the target by primary key
+                    // so the planner stays on the index; a
+                    // `reblog_of_id IN (SELECT id FROM statuses WHERE type IN (...))`
+                    // form scans every photo/video row and times the query out.
+                    return $q->where(function ($sub) use ($inTypesStrict) {
+                        $sub->whereNull('reblog_of_id')
+                            ->orWhereExists(function ($query) use ($inTypesStrict) {
+                                $query->selectRaw('1')
+                                    ->from('statuses as rb')
+                                    ->whereColumn('rb.id', 'statuses.reblog_of_id')
+                                    ->whereIn('rb.type', $inTypesStrict);
+                            });
+                    });
+                })
                 ->orderByDesc('id')
                 ->take(($limit * 2))
                 ->get()
@@ -2837,6 +2870,22 @@ class ApiV1Controller extends Controller
                 ->whereIntegerInRaw('profile_id', $following)
                 ->whereIn('type', $inTypes)
                 ->whereIn('visibility', ['public', 'unlisted', 'private'])
+                ->when($includeReblogs && $photosReblogsOnly, function ($q) use ($inTypesStrict) {
+                    // Keep direct posts plus reblogs whose target is a photo/video
+                    // status. The correlated EXISTS probes the target by primary key
+                    // so the planner stays on the index; a
+                    // `reblog_of_id IN (SELECT id FROM statuses WHERE type IN (...))`
+                    // form scans every photo/video row and times the query out.
+                    return $q->where(function ($sub) use ($inTypesStrict) {
+                        $sub->whereNull('reblog_of_id')
+                            ->orWhereExists(function ($query) use ($inTypesStrict) {
+                                $query->selectRaw('1')
+                                    ->from('statuses as rb')
+                                    ->whereColumn('rb.id', 'statuses.reblog_of_id')
+                                    ->whereIn('rb.type', $inTypesStrict);
+                            });
+                    });
+                })
                 ->orderByDesc('id')
                 ->take(($limit * 2))
                 ->get()
