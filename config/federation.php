@@ -18,6 +18,21 @@ return [
 
         'remoteFollow' => env('AP_REMOTE_FOLLOW', true),
 
+        /*
+         * Allow fetching actors/objects from hosts that resolve to private
+         * (RFC1918) or otherwise non-globally-routable addresses.
+         *
+         * Needed when the instance federates with peers behind split-horizon
+         * DNS or on the same private network (docker networks, k8s clusters,
+         * CGNAT), where a legitimate peer resolves to a private address from
+         * inside the app container.
+         *
+         * Disabled by default: url validation exists to stop Server-Side
+         * Request Forgery and DNS-rebinding, so only enable this if every
+         * private-range host you could be asked to fetch is trusted.
+         */
+        'allow_private_ips' => env('AP_ALLOW_PRIVATE_IPS', false),
+
         'delivery' => [
             'timeout' => env('ACTIVITYPUB_DELIVERY_TIMEOUT', 30),
             'concurrency' => env('ACTIVITYPUB_DELIVERY_CONCURRENCY', 10),

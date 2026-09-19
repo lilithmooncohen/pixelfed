@@ -369,6 +369,8 @@ class Helpers
             return [];
         }
 
+        $allowPrivateIps = (bool) config('federation.activitypub.allow_private_ips');
+
         $ips = [];
 
         foreach ($records as $record) {
@@ -378,7 +380,7 @@ class Helpers
                 continue;
             }
 
-            if (! self::isPublicIp($ip)) {
+            if (! $allowPrivateIps && ! self::isPublicIp($ip)) {
                 return [];
             }
 
