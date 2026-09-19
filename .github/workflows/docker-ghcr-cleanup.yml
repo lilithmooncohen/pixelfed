@@ -12,15 +12,18 @@ permissions:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
-    if: github.repository == 'pixelfed/pixelfed'
     steps:
       - name: Clean up old images
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
-          owner: pixelfed
-          package: pixelfed
+          # Derived from the repository rather than hardcoded, so the workflow
+          # cleans this repository's own package wherever it runs.
+          owner: ${{ github.repository_owner }}
+          package: ${{ github.event.repository.name }}
 
-          exclude-tags: 'latest,staging,unstable,stable,v*.*.*'
+          # Never prune the rolling branch images or published release tags.
+          # Branch pushes tag with the branch name (and <branch>-<sha>).
+          exclude-tags: 'latest,dev,staging,unstable,pix-lgbt,stable,v*.*.*'
           older-than: 6 months
           delete-untagged: true
           keep-n-tagged: 25
