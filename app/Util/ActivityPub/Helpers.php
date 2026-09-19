@@ -2007,13 +2007,28 @@ class Helpers
         $instance = self::getOrCreateInstance($domain);
         $movedToPid = $movedToCheck ? null : self::handleMovedTo($res);
 
-        $profile = Profile::updateOrCreate(
-            [
-                'domain' => strtolower($domain),
-                'username' => Purify::clean($webfinger),
-            ],
-            self::buildProfileData($res, $webfinger, $movedToPid)
-        );
+        try {
+            $profile = Profile::updateOrCreate(
+                [
+                    'domain' => strtolower($domain),
+                    'username' => Purify::clean($webfinger),
+                ],
+                self::buildProfileData($res, $webfinger, $movedToPid)
+            );
+        } catch (UniqueConstraintViolationException $e) {
+            // profiles carries a unique index on key_id as well as on
+            // (domain, username), but updateOrCreate's ON CONFLICT only covers
+            // the latter. Two inbox jobs fetching the same actor at once
+            // therefore collide on key_id and the loser throws, dropping the
+            // activity it was handling. Re-read the row the winner created.
+            $profile = Profile::whereDomain(strtolower($domain))
+                ->whereUsername(Purify::clean($webfinger))
+                ->first();
+
+            if (! $profile) {
+                throw $e;
+            }
+        }
 
         self::handleProfileAvatar($profile);
 
