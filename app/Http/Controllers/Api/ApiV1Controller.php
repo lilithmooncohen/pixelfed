@@ -2800,7 +2800,12 @@ class ApiV1Controller extends Controller
                         return false;
                     }
 
-                    $status['account'] = $account;
+                    // Deliberately NOT `$status['account'] = $account`. The guard
+                    // above resolves the account from $s['profile_id'], which on a
+                    // boost is the booster, while StatusService already attached the
+                    // author's - assigning it credits the shared post to whoever
+                    // boosted it. The equivalent block below resolves from
+                    // $status['account']['id'] for exactly this reason.
 
                     if ($pid) {
                         $status['favourited'] = (bool) LikeService::liked($pid, $s['id']);
@@ -2878,7 +2883,12 @@ class ApiV1Controller extends Controller
                         return false;
                     }
 
-                    $status['account'] = $account;
+                    // Deliberately NOT `$status['account'] = $account`. The guard
+                    // above resolves the account from $s['profile_id'], which on a
+                    // boost is the booster, while StatusService already attached the
+                    // author's - assigning it credits the shared post to whoever
+                    // boosted it. The equivalent block below resolves from
+                    // $status['account']['id'] for exactly this reason.
 
                     if ($pid) {
                         $status['favourited'] = (bool) LikeService::liked($pid, $s['id']);
