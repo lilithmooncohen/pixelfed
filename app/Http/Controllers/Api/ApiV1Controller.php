@@ -2646,6 +2646,16 @@ class ApiV1Controller extends Controller
             : data_get($other, 'photo_reblogs_only', false);
         $reblogTargetTypes = array_diff($inTypes, ['share']);
 
+        /*
+         * Rows to fetch in order to end up with $limit of them. The existing 2x
+         * covers the account filter below; "Photo reblogs only" drops far more
+         * (text boosts), and a page that comes back short trips the web UI's
+         * end-of-feed heuristic (Timeline.vue disables the scroll and shows
+         * "Load more" when a page has fewer than 4 items), so fetch deeper
+         * when it is on.
+         */
+        $fetchLimit = $photosReblogsOnly ? $limit * 6 : $limit * 2;
+
         AccountService::setLastActive($request->user()->id);
 
         $cachedFilters = CustomFilter::getCachedFiltersForAccount($pid);
@@ -2774,7 +2784,7 @@ class ApiV1Controller extends Controller
                 ->whereIn('type', $inTypes)
                 ->whereIn('visibility', ['public', 'unlisted', 'private'])
                 ->orderByDesc('id')
-                ->take(($limit * 2))
+                ->take($fetchLimit)
                 ->get()
                 ->map(function ($s) use ($pid, $napi) {
                     try {
@@ -2852,7 +2862,7 @@ class ApiV1Controller extends Controller
                 ->whereIn('type', $inTypes)
                 ->whereIn('visibility', ['public', 'unlisted', 'private'])
                 ->orderByDesc('id')
-                ->take(($limit * 2))
+                ->take($fetchLimit)
                 ->get()
                 ->map(function ($s) use ($pid, $napi) {
                     try {
