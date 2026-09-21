@@ -149,9 +149,19 @@ class StatusService
         $status['account']['header_static'] = url('/storage/headers/missing.png');
         $status['account']['last_status_at'] = null;
 
-        $status['media_attachments'] = array_values(
-            MediaService::getMastodon($status['id'])
-        );
+        $media = MediaService::getMastodon($status['id']);
+
+        // Same boost case as StatusStatelessTransformer::mediaAttachments().
+        // A boost owns no media of its own, so a Mastodon-shaped client that
+        // reads only the top level - Fedilab is named in
+        // pixelfed/pixelfed-rn#473 - draws a bare header with no image. The
+        // media is reachable through the nested `reblog`; clients that unwrap
+        // it ignore this field on a boost, so they are unaffected.
+        if (empty($media) && ! empty($status['reblog']['id'])) {
+            $media = MediaService::getMastodon($status['reblog']['id']);
+        }
+
+        $status['media_attachments'] = array_values($media);
 
         $status['muted'] = false;
         $status['reblogged'] = false;
