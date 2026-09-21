@@ -72,7 +72,12 @@ class StatusStatelessTransformer extends Fractal\TransformerAbstract
             'taggedPeople' => $taggedPeople,
             'liked_by' => LikeService::likedBy($status),
             'media_attachments' => self::mediaAttachments($status),
-            'account' => AccountService::get($status->profile_id, true),
+            // A boost's own account is the booster. Since the content and media
+            // above now fall back to the shared status, leaving this as the
+            // booster would print their name above someone else's words and
+            // pictures. Clients that unwrap `reblog` use that object's account
+            // and ignore this, so they are unaffected.
+            'account' => $reblog['account'] ?? AccountService::get($status->profile_id, true),
             'tags' => StatusHashtagService::statusTags($status->id),
             'poll' => $poll,
             'edited_at' => $status->edited_at ? str_replace('+00:00', 'Z', $status->edited_at->format(DATE_RFC3339_EXTENDED)) : null,
