@@ -2639,6 +2639,13 @@ class ApiV1Controller extends Controller
         $inTypes = $includeReblogs ?
             ['photo', 'photo:album', 'video', 'video:album', 'photo:video:album', 'share'] :
             ['photo', 'photo:album', 'video', 'video:album', 'photo:video:album'];
+
+        // "Photo reblogs only" (persisted Timeline Setting)
+        $photosReblogsOnly = $request->filled('photos_reblogs_only')
+            ? $request->boolean('photos_reblogs_only')
+            : data_get($other, 'photo_reblogs_only', false);
+        $reblogTargetTypes = array_diff($inTypes, ['share']);
+
         AccountService::setLastActive($request->user()->id);
 
         $cachedFilters = CustomFilter::getCachedFiltersForAccount($pid);
@@ -2793,8 +2800,15 @@ class ApiV1Controller extends Controller
 
                     return $status;
                 })
-                ->filter(function ($status) {
-                    return $status && isset($status['account']);
+                ->filter(function ($status) use ($photosReblogsOnly, $reblogTargetTypes) {
+                    if (! $status || ! isset($status['account'])) {
+                        return false;
+                    }
+
+                    // direct posts pass; a boost must share a photo or video
+                    return ! $photosReblogsOnly
+                        || ($status['pf_type'] ?? null) !== 'share'
+                        || in_array(data_get($status['reblog'], 'pf_type'), $reblogTargetTypes);
                 })
                 ->map(function ($status) use ($pid) {
                     if (! empty($status['reblog'])) {
@@ -2864,8 +2878,15 @@ class ApiV1Controller extends Controller
 
                     return $status;
                 })
-                ->filter(function ($status) {
-                    return $status && isset($status['account']);
+                ->filter(function ($status) use ($photosReblogsOnly, $reblogTargetTypes) {
+                    if (! $status || ! isset($status['account'])) {
+                        return false;
+                    }
+
+                    // direct posts pass; a boost must share a photo or video
+                    return ! $photosReblogsOnly
+                        || ($status['pf_type'] ?? null) !== 'share'
+                        || in_array(data_get($status['reblog'], 'pf_type'), $reblogTargetTypes);
                 })
                 ->map(function ($status) use ($pid) {
                     if (! empty($status['reblog'])) {
